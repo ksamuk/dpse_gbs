@@ -35,52 +35,20 @@ download.file(genome_url, "data/dpse-all-chromosome-r3.04.fasta.gz")
 # 5'--cs_5p1  cs_3p1--3'
 # 3'--cs_5p2  cs_3p2-—5'
 
-# PstI 
-# 5'--CTGCA  G--3'
-# 3'--G  ACGTC—5'
-PstI <- list(cs_5p1 = "CTGCA", cs_3p1 = "G", cs_5p2 = "ACGTC", cs_3p2  = "G")
-
+# Csp6I
+#5' ---G   TAC--- 3'
+#3' ---CAT   G--- 5'
+Csp6I <- list(cs_5p1 = "G", cs_3p1 = "TAC", cs_5p2 = "G", cs_3p2  = "CAT", name = "Csp6I")
+	
 # MspI
 # 5' ---C   CGG--- 3'
 # 3' ---GGC   C--- 5'
-MspI <- list(cs_5p1 = "C", cs_3p1 = "CGG", cs_5p2 = "C", cs_3p2 = "GGC")
+MspI <- list(cs_5p1 = "C", cs_3p1 = "CGG", cs_5p2 = "C", cs_3p2 = "GGC", name = "Csp6I")
 
 # EcoRI
 # 5' ---G   AATTC--- 3'
 # 3' ---CTTAA   G--- 5'
-EcoRI <- list(cs_5p1 = "G", cs_3p1 = "AATTC", cs_5p2 = "G", cs_3p2 = "CTTA")
-
-############################################################
-# Basic SimRAD analysis
-############################################################
-
-# load reference genome
-ref_genome <- ref.DNAseq("data/dpse-all-chromosome-r3.04.fasta.gz", prop.contigs = 1.0)
-
-# in silico digests
-
-# PstI
-# 65482 fragments
-digest_pst <- insilico.digest(ref_genome, PstI[1], PstI[2], verbose = TRUE)
-
-# MspI
-# 316549 fragments
-digest_msp <- insilico.digest(ref_genome, MspI[1], MspI[2], verbose = TRUE)
-
-# EcoRI 
-# 35225 fragments
-digest_eco <- insilico.digest(ref_genome, EcoRI[1], EcoRI[2], verbose = TRUE)
-
-# EcoRI + MspI
-# 351490 sites
-digest_eco_msp <- insilico.digest(digest_eco, MspI[1], MspI[2], verbose = TRUE)
-
-# size selection
-
-pst_size <- size.select(digest_pst, 300, 500) # 5573 fragments between 300 and 500 bp 
-msp_size <- size.select(digest_msp, 300, 500) # 39902 fragments between 300 and 500 bp 
-eco_size <- size.select(digest_eco, 300, 500) # 1573 fragments between 300 and 500 bp 
-eco_msp_size <- size.select(digest_eco_msp, 300, 500) # 47426 fragments between 300 and 500 bp 
+EcoRI <- list(cs_5p1 = "G", cs_3p1 = "AATTC", cs_5p2 = "G", cs_3p2 = "CTTA", name = "Csp6I")
 
 ############################################################
 # Simulating distribution of reads per inidivudal
@@ -89,40 +57,75 @@ eco_msp_size <- size.select(digest_eco_msp, 300, 500) # 47426 fragments between 
 # estimate variance in sequencing/individual using a real GBS run
 gbs_test <- read.table("data/gbs_2015_lane1.txt")
 
+hist(gbs_test[,4] )
+
 sd_gbs <- gbs_test[,4] %>% 
 	gsub("M", "", .) %>% 
 	as.numeric %>%
-	sd(na.rm = TRUE)
-
+	length
 mean_gbs <- gbs_test[,4] %>% 
 	gsub("M", "", .) %>% 
 	as.numeric %>%
 	mean(na.rm = TRUE)
 
-coeff_var_gbs <- mean_gbs/sd_gbs
-
-# illumina claims 125M for illumina 2500, but probably super variable per facility
-total_sequenced_reads <- 75000000
-
-# number of individuals
-num_ind <- 60
-
-mean_reads <- total_sequenced_reads/num_ind
-
-# prop reads per individual
-prop_reads <- rnorm(60, mean = reads_per_ind, sd = reads_per_ind/coeff_var_gbs)
-
-hist(prop_reads)
-
-prop_reads %>%
-	ggplot(aes(x = prop_reads)) +
-	geom_histogram(bins = 15)
+coeff_var_gbs <- mean_gbs/sd_gbs # sd ~ 0.4 * mean ("sequencing variance")
 
 
-# reads per individual
+# function for full library prep simulation
 
+rr_library_prep<- function(reference_genome, enzyme_cut, size_range = c(300, 500), num_ind = 60, 
+													expected_reads = 75000000, expected_sequencing_variance = 0.4, plot = TRUE,
+													read_cutoff = 10){
+	
+	# perform in silico digest 
+	digest <- insilico.digest(reference_genome, enzyme_cut[1], enzyme_cut[2], verbose = FALSE)
+	
+	# size selection
+	size_sel <- size.select(digest, size_range[1], size_range[2], verbose = FALSE, graph = FALSE)
+	
+	# simulate variable sequencing
+	prop_reads <- rnorm(num_ind, mean = 100, sd = 10 * expected_sequencing_variance)
+	
+	#
+	prop_reads <- rnorm(num_ind, mean = expected_reads, sd = expected_reads*expected_sequencing_variance)
 
+	# transform to average reads per fragment (assuming uniform fragment representation)
+	average_reads_per_frag <- prop_reads/length(size_sel)
+	mean_reads_per_frag <- mean(prop_reads/length(size_sel))
+	
+	ifelse(reads_per_frag < 0, 0, reads_per_frag)
+	
+	# test if average reads per frag falls below threshold
+	prop_average_reads_below_threshold <- sum(average_reads_per_frag < read_cutoff)/length(average_reads_per_frag)
+	
+#	data.frame(enzyme_name = enzyme_cut$name, number_of_fragments = length(size_sel),average_reads_per_frag = average_reads_per_frag, mean_reads_per_fragment = mean_reads_per_frag, prop_average_reads_below_threshold = prop_average_reads_below_threshold)
+	
+	data.frame(enzyme_name = enzyme_cut$name, num_ind = num_ind, number_of_fragments = length(size_sel), mean_reads_per_fragment = mean_reads_per_frag, prop_below_threshold = prop_average_reads_below_threshold)
+	
+}
 
+ind_list <- list(60, 80, 100, 120, 140)
+csp_preps <- lapply(ind_list, function(x) rr_library_prep(num_ind = x, reference_genome = ref_genome, enzyme_cut = Csp6I))
 
+csp_df <- rbind_all(csp_preps)
+
+csp_df %>%
+	ggplot(aes(x = num_ind, y = prop_below_threshold)) +
+	geom_line() +
+	theme_bw()
+
+CspI_lib_prep <- rr_library_prep(ref_genome, enzyme_cut = Csp6I, size_range = c(300, 500), num_ind = 60, 
+																 expected_reads = 75000000, expected_sequencing_variance = 0.4, plot = TRUE,
+																 read_cutoff = 10)
+
+MspI_lib_prep <- rr_library_prep(ref_genome, enzyme_cut = MspI, size_range = c(300, 500), num_ind = 60, 
+																 expected_reads = 75000000, expected_sequencing_variance = 0.4, plot = TRUE,
+																 read_cutoff = 10)
+
+EcoRI_lib_prep <- rr_library_prep(ref_genome, enzyme_cut = EcoRI, size_range = c(300, 500), num_ind = 60, 
+																 expected_reads = 75000000, expected_sequencing_variance = 0.4, plot = TRUE,
+																 read_cutoff = 10)
+
+rbind_all 
 
 
