@@ -14,7 +14,6 @@
 
 library("SimRAD")
 library("dplyr")
-library("zoo")
 library("ggplot2")
 
 ############################################################
@@ -25,6 +24,8 @@ library("ggplot2")
 genome_url <- "ftp://ftp.flybase.net/genomes/Drosophila_pseudoobscura/dpse_r3.04_FB2016_02/fasta/dpse-all-chromosome-r3.04.fasta.gz"
 dir.create("data")
 download.file(genome_url, "data/dpse-all-chromosome-r3.04.fasta.gz")
+ref_genome <- ref.DNAseq("data/dpse-all-chromosome-r3.04.fasta.gz", subselect.contigs = TRUE, prop.contigs = 1.0)
+
 
 # restriction enzyme sequences
 
@@ -54,28 +55,21 @@ EcoRI <- list(cs_5p1 = "G", cs_3p1 = "AATTC", cs_5p2 = "G", cs_3p2 = "CTTA", nam
 # Simulating distribution of reads per inidivudal
 ############################################################
 
-# estimate variance in sequencing/individual using a real GBS run
-gbs_test <- read.table("data/gbs_2015_lane1.txt")
-
-hist(gbs_test[,4] )
-
-sd_gbs <- gbs_test[,4] %>% 
-	gsub("M", "", .) %>% 
-	as.numeric %>%
-	length
-mean_gbs <- gbs_test[,4] %>% 
-	gsub("M", "", .) %>% 
-	as.numeric %>%
-	mean(na.rm = TRUE)
-
-coeff_var_gbs <- mean_gbs/sd_gbs # sd ~ 0.4 * mean ("sequencing variance")
-
 
 # function for full library prep simulation
 
-rr_library_prep<- function(reference_genome, enzyme_cut, size_range = c(300, 500), num_ind = 60, 
-													expected_reads = 75000000, expected_sequencing_variance = 0.4, plot = TRUE,
-													read_cutoff = 10){
+reference_genome = ref_genome
+enzyme_cut = MspI
+size_range = c(300, 500)
+num_ind = 60 
+expected_reads = 75000000 
+expected_sequencing_variance = 0.4 
+read_cutoff = 10
+
+
+
+rr_library_prep <- function(reference_genome, enzyme_cut, size_range = c(300, 500), num_ind = 60, 
+														expected_reads = 75000000, expected_sequencing_variance = 0.4, read_cutoff = 10){
 	
 	# perform in silico digest 
 	digest <- insilico.digest(reference_genome, enzyme_cut[1], enzyme_cut[2], verbose = FALSE)
@@ -83,22 +77,32 @@ rr_library_prep<- function(reference_genome, enzyme_cut, size_range = c(300, 500
 	# size selection
 	size_sel <- size.select(digest, size_range[1], size_range[2], verbose = FALSE, graph = FALSE)
 	
-	# simulate variable sequencing
-	prop_reads <- rnorm(num_ind, mean = 100, sd = 10 * expected_sequencing_variance)
+	# simulate variable assignment of reads to fragments
+	all_reads <- rexp(length(size_sel), 1/(expected_reads/length(size_sel)))
 	
-	#
-	prop_reads <- rnorm(num_ind, mean = expected_reads, sd = expected_reads*expected_sequencing_variance)
+	# simulate variable sequencing of individuals
+	prop_reads <- rnorm(num_ind, mean = expected_reads_per_ind, sd = expected_reads_per_ind * expected_sequencing_variance) 
+	prop_reads <- (prop_reads / (expected_reads_per_ind)) / num_ind
+	prop_reads <- ifelse(prop_reads < 0, 0, prop_reads)
+	
+	# assign reads to individuals
+	assign_reads <- function(prop_reads, reads){
+		round(reads * prop_reads)
+	}
+	
+	assigned_reads <- lapply(prop_reads, assign_reads, reads = all_reads) %>% data.frame
+	
+	# create data frame of assigned reads
+	names(assigned_reads) <- paste0("ind_", 1:num_ind)
+	assigned_reads <- data.frame(fragment = 1:length(all_reads), assigned_reads)
+	
+	# proportion of individuals with < threshold reads, per fragment
+	(assigned_reads[,-1] > read_cutoff) %>% 
+		rowSums() %>% hist
+		lapply(., function(x) as.numeric(x) %>% sum)
 
-	# transform to average reads per fragment (assuming uniform fragment representation)
-	average_reads_per_frag <- prop_reads/length(size_sel)
-	mean_reads_per_frag <- mean(prop_reads/length(size_sel))
-	
-	ifelse(reads_per_frag < 0, 0, reads_per_frag)
-	
 	# test if average reads per frag falls below threshold
 	prop_average_reads_below_threshold <- sum(average_reads_per_frag < read_cutoff)/length(average_reads_per_frag)
-	
-#	data.frame(enzyme_name = enzyme_cut$name, number_of_fragments = length(size_sel),average_reads_per_frag = average_reads_per_frag, mean_reads_per_fragment = mean_reads_per_frag, prop_average_reads_below_threshold = prop_average_reads_below_threshold)
 	
 	data.frame(enzyme_name = enzyme_cut$name, num_ind = num_ind, number_of_fragments = length(size_sel), mean_reads_per_fragment = mean_reads_per_frag, prop_below_threshold = prop_average_reads_below_threshold)
 	
@@ -114,18 +118,6 @@ csp_df %>%
 	geom_line() +
 	theme_bw()
 
-CspI_lib_prep <- rr_library_prep(ref_genome, enzyme_cut = Csp6I, size_range = c(300, 500), num_ind = 60, 
-																 expected_reads = 75000000, expected_sequencing_variance = 0.4, plot = TRUE,
-																 read_cutoff = 10)
 
-MspI_lib_prep <- rr_library_prep(ref_genome, enzyme_cut = MspI, size_range = c(300, 500), num_ind = 60, 
-																 expected_reads = 75000000, expected_sequencing_variance = 0.4, plot = TRUE,
-																 read_cutoff = 10)
-
-EcoRI_lib_prep <- rr_library_prep(ref_genome, enzyme_cut = EcoRI, size_range = c(300, 500), num_ind = 60, 
-																 expected_reads = 75000000, expected_sequencing_variance = 0.4, plot = TRUE,
-																 read_cutoff = 10)
-
-rbind_all 
 
 
