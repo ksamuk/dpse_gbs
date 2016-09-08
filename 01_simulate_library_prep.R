@@ -14,6 +14,7 @@
 
 library("SimRAD")
 library("dplyr")
+library("tidyr")
 library("ggplot2")
 
 ############################################################
@@ -23,7 +24,11 @@ library("ggplot2")
 # download reference genome
 genome_url <- "ftp://ftp.flybase.net/genomes/Drosophila_pseudoobscura/dpse_r3.04_FB2016_02/fasta/dpse-all-chromosome-r3.04.fasta.gz"
 dir.create("data")
-download.file(genome_url, "data/dpse-all-chromosome-r3.04.fasta.gz")
+
+if(!file.exists("data/dpse-all-chromosome-r3.04.fasta.gz")){
+	download.file(genome_url, "data/dpse-all-chromosome-r3.04.fasta.gz")
+}
+
 ref_genome <- ref.DNAseq("data/dpse-all-chromosome-r3.04.fasta.gz", subselect.contigs = TRUE, prop.contigs = 1.0)
 
 
@@ -55,9 +60,9 @@ EcoRI <- list(cs_5p1 = "G", cs_3p1 = "AATTC", cs_5p2 = "G", cs_3p2 = "CTTA", nam
 # Simulating distribution of reads per inidivudal
 ############################################################
 
-
 # function for full library prep simulation
 
+# dummies for debug
 reference_genome = ref_genome
 enzyme_cut = MspI
 size_range = c(300, 500)
@@ -66,10 +71,9 @@ expected_reads = 75000000
 expected_sequencing_variance = 0.4 
 read_cutoff = 10
 
-
-
 rr_library_prep <- function(reference_genome, enzyme_cut, size_range = c(300, 500), num_ind = 60, 
-														expected_reads = 75000000, expected_sequencing_variance = 0.4, read_cutoff = 10){
+														expected_reads = 75000000, expected_sequencing_variance = 0.4, 
+														read_cutoff = 10, ind_cutoff = 0.8){
 	
 	# perform in silico digest 
 	digest <- insilico.digest(reference_genome, enzyme_cut[1], enzyme_cut[2], verbose = FALSE)
@@ -77,29 +81,33 @@ rr_library_prep <- function(reference_genome, enzyme_cut, size_range = c(300, 50
 	# size selection
 	size_sel <- size.select(digest, size_range[1], size_range[2], verbose = FALSE, graph = FALSE)
 	
-	# simulate variable assignment of reads to fragments
+	# simulate variable sequencing of each fragment
 	all_reads <- rexp(length(size_sel), 1/(expected_reads/length(size_sel)))
 	
-	# simulate variable sequencing of individuals
+	# expected reads for each individual
+	expected_reads_per_ind <- expected_reads/num_ind
+	
+	# simulate variable sequencing per individual
 	prop_reads <- rnorm(num_ind, mean = expected_reads_per_ind, sd = expected_reads_per_ind * expected_sequencing_variance) 
 	prop_reads <- (prop_reads / (expected_reads_per_ind)) / num_ind
 	prop_reads <- ifelse(prop_reads < 0, 0, prop_reads)
 	
 	# assign reads to individuals
-	assign_reads <- function(prop_reads, reads){
-		round(reads * prop_reads)
-	}
-	
-	assigned_reads <- lapply(prop_reads, assign_reads, reads = all_reads) %>% data.frame
+	assigned_reads <- lapply(prop_reads, function(x) round(all_reads * x)) %>% data.frame
 	
 	# create data frame of assigned reads
 	names(assigned_reads) <- paste0("ind_", 1:num_ind)
-	assigned_reads <- data.frame(fragment = 1:length(all_reads), assigned_reads)
+	assigned_reads <- data.frame(fragment = 1:length(all_reads), assigned_reads) %>%
+		gather(-fragment, key = "ind", value = "frag_count")
 	
-	# proportion of individuals with < threshold reads, per fragment
-	(assigned_reads[,-1] > read_cutoff) %>% 
-		rowSums() %>% hist
-		lapply(., function(x) as.numeric(x) %>% sum)
+	prop_fragments_useable <- assigned_reads %>%
+		mutate(frag_count_acceptable = frag_count > read_cutoff) %>%
+		group_by(fragment) %>%
+		summarise(prop_ind_acceptable = mean(frag_count_acceptable )) %>%
+		mutate(ind_count_acceptable = prop_ind_acceptable > ind_cutoff) %>%
+		summarise(prop_frags_usable = mean(ind_count_acceptable)) %>%
+		as.numeric
+
 
 	# test if average reads per frag falls below threshold
 	prop_average_reads_below_threshold <- sum(average_reads_per_frag < read_cutoff)/length(average_reads_per_frag)
