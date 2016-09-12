@@ -241,7 +241,7 @@ if(!file.exists("data/simulated_preps.txt")){
 
 ### Usable restriction fragments
 
-Each bar depicts the number of fragments that on average > 10 reads in 80% of the individuals. Both techniques result in a similar(ish) maxmimum number of fragments, and have a similar rate of deline when adding additional individuals. The dotted line shows y = 1000 usable fragments. According to the simulation, we can sequence **up to ~400 individuals while still recovering 1000 usable sites**. 
+Each bar depicts the number of fragments that have on average > 10 reads in 80% of the individuals. Both techniques result in a similar(ish) maxmimum number of fragments, and have a similar rate of decline when adding additional individuals. The dotted line shows y = 1000 usable fragments. According to the simulation, we can sequence **up to ~400 individuals while still recovering 1000 usable sites**. 
 
 ```{r plots1 ,echo=FALSE}
 
