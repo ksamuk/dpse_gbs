@@ -49,6 +49,34 @@ nd_dat %>%
         axis.title.x = element_text(size = 16, face = "bold"),
         strip.text = element_text(face = "bold"))
 
+# qubit results
+
+nd_dat %>%
+  ggplot(aes(x = yield, y = qubit_yield)) +
+  geom_point()+
+  geom_smooth(method = "lm")+
+  xlab("Nanodrop Yield (ng)")+
+  ylab("Qubit yield (ng)")+
+  coord_cartesian(xlim = c(0, 90))
+
+with(nd_dat, lm(qubit_yield ~ yield))
+
+
+tmp <- nd_dat %>%
+  .[-29,] %>%
+  select(id, protocol, sex, measurement, yield) %>%
+  mutate(id = paste0(id, "_", protocol)) %>%
+  spread(measurement, yield)
+
+names(tmp)[4:5] <- c("measure1", "measure2")
+
+tmp %>%
+  ggplot(aes(x = measure1, y = measure2)) +
+  geom_point()+
+  geom_smooth(method = "lm")
+
+with(tmp, lm(measure1 ~ measure2)) %>% 
+  summary
 
 
 
