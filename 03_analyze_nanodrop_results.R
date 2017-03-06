@@ -9,6 +9,7 @@
 
 library("tidyverse")
 library("cowplot")
+library("ggthemes")
 
 ############################################################
 # load data
@@ -26,9 +27,10 @@ stat_names <- c(
   `r_260.280` = "260/280",
   `r_260.230` = "260/230",
   `yield` = "Total Yield (ng)",
-  `1` = "Attempt #1",
-  `2` = "Attempt #2",
-  `3` = "Attempt #3"
+  `1` = "Base PCL #1",
+  `2` = "Base PCL #2",
+  `3` = "Base PCL #3",
+  `4` = "Phase Lock #3"
 )
 
 # plot results of DNA extractions
@@ -37,17 +39,18 @@ nd_dat %>%
   gather(key = stat, value = value, -sex, -id, -protocol) %>% 
   mutate(sex = toupper(sex)) %>%
   filter(stat %in% c("yield", "r_260.280","r_260.230")) %>%
-  ggplot(aes(y = value , x = sex, fill = sex, group = interaction(stat,sex)))+
-  #stat_summary(fun.data = "mean_cl_boot", size = 2)+
-  geom_dotplot(binaxis = "y", stackdir = "centerwhole", dotsize = 2)+
-  facet_grid(stat ~ protocol, scales = "free", switch = "y", labeller = as_labeller(stat_names)) + 
-  xlab("Sex")+
+  mutate(phase_lock = protocol == 4) %>%
+  ggplot(aes(y = value, x = phase_lock))+
+  geom_jitter(color = "grey75", width = 0.5)+
+  stat_summary(fun.data = "mean_cl_boot", size = 1, aes(color = as.factor(phase_lock)))+
+  facet_wrap(~stat, scales = "free_y", labeller = as_labeller(stat_names)) + 
   ylab(NULL)+
   theme_bw(base_size = 18)+
-  theme(legend.position = "none",
-        strip.background = element_blank(),
+  theme(strip.background = element_blank(),
         axis.title.x = element_text(size = 16, face = "bold"),
-        strip.text = element_text(face = "bold"))
+        strip.text = element_text(face = "bold"))+
+  scale_color_fivethirtyeight(guide = guide_legend(title = "Phase lock?"))+
+  xlab("Phase lock?")
 
 # qubit results
 
@@ -56,11 +59,14 @@ nd_dat %>%
   geom_point()+
   geom_smooth(method = "lm")+
   xlab("Nanodrop Yield (ng)")+
-  ylab("Qubit yield (ng)")+
-  coord_cartesian(xlim = c(0, 90))
+  ylab("Qubit yield (ng)")
 
 with(nd_dat, lm(qubit_yield ~ yield))
 
+# ~ a factor of 5 difference
+# qubit = (nanodrop yield / 4.55) - 77.52 
+
+# repeatability of the nano-drop
 
 tmp <- nd_dat %>%
   .[-29,] %>%
