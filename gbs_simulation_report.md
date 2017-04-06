@@ -239,33 +239,33 @@ if(!file.exists("data/simulated_preps.txt")){
 
 Each bar depicts the number of fragments that have on average > 10 reads in 80% of the individuals. Both techniques result in a similar(ish) maxmimum number of fragments, and have a similar rate of decline when adding additional individuals. The dotted line shows y = 1000 usable fragments. According to the simulation, we can sequence **up to ~400 individuals while still recovering 1000 usable sites**. 
 
-![](gbs_simulation_report_files/figure-html/plots1-1.png)
+![](gbs_simulation_report_files/figure-html/plots1 -1.png)
 
 
 Here are the two techniques overlaid directly. Both techniques result in very similar outcomes.
 
 
-![](gbs_simulation_report_files/figure-html/plots2-1.png)
+![](gbs_simulation_report_files/figure-html/plots2 -1.png)
 
 ### Mean reads per fragment/individual
 
 If we just look at the mean reads per fragment, per individual, the pattern is the same.
 
 
-![](gbs_simulation_report_files/figure-html/plots2.5-1.png)
+![](gbs_simulation_report_files/figure-html/plots2.5 -1.png)
 
 ### Mean depth of top 1000 fragments
 
 If we examine the sequencing depth per fragment per individual for the top 1000 most numerous fragments, both techniques again generate similar results. Plots show min, mean, max.
 
 
-![]("gbs_simulation_report_files/figure-html/plots3 -1.png")
+![](gbs_simulation_report_files/figure-html/plots3 -1.png)
 
 
 If we zoom in on the range of 100 - 300 individuals, we can see that we can very safely recover 1000 high-depth (min 35 reads/fragment) loci when including 150-200 individuals.
 
 
-![]("gbs_simulation_report_files/figure-html/plots4 -1.png")
+![](gbs_simulation_report_files/figure-html/plots4 -1.png)
 
 ## Conclusion
 
