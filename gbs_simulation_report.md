@@ -259,13 +259,13 @@ If we just look at the mean reads per fragment, per individual, the pattern is t
 If we examine the sequencing depth per fragment per individual for the top 1000 most numerous fragments, both techniques again generate similar results. Plots show min, mean, max.
 
 
-![](gbs_simulation_report_files/figure-html/plots3-1.png)
+![]("gbs_simulation_report_files/figure-html/plots3 -1.png")
 
 
 If we zoom in on the range of 100 - 300 individuals, we can see that we can very safely recover 1000 high-depth (min 35 reads/fragment) loci when including 150-200 individuals.
 
 
-![](gbs_simulation_report_files/figure-html/plots4-1.png)
+![]("gbs_simulation_report_files/figure-html/plots4 -1.png")
 
 ## Conclusion
 
