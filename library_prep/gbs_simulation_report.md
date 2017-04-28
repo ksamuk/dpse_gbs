@@ -8,7 +8,7 @@ September 9, 2016
 
 ### Aims
 
-We want estimates of FST between two *Drosophila psuedoobscura* populations at approximately 1000 sites across the genome. Reduced representation sequencing (GBS/RAD/ddRAD) is a common approach for the scale of genotyping required. Two other labs at Duke have established GBS/ddRAD protocols. The Rausher lab uses a double digest of EcoRI and MspI and the Willis lab uses a single digest of Csp6I.
+We want estimates of FST between two *Drosophila pseudoobscura* populations at approximately 1000 sites across the genome. Reduced representation sequencing (GBS/RAD/ddRAD) is a common approach for the scale of genotyping required. Two other labs at Duke have established GBS/ddRAD protocols. The Rausher lab uses a double digest of EcoRI and MspI and the Willis lab uses a single digest of Csp6I.
 
 We would like to know:
 
